@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mcorp — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.proj-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.proj-card:hover{border-color:var(--border2);}
+.chat-panel{position:fixed;right:0;top:56px;bottom:0;width:380px;background:var(--surf);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s ease;z-index:90;}
+.chat-panel.open{transform:translateX(0);}
+.cmain{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.cmsg{padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6;max-width:92%;}
+.cmsg.usr{background:var(--goldx);border:1px solid rgba(201,169,110,.2);margin-left:auto;border-radius:8px 3px 8px 8px;}
+.cmsg.ai{background:var(--card2);border:1px solid var(--border2);border-radius:3px 8px 8px 8px;}
+.cmsg .from{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--gold);margin-bottom:4px;}
+.cinp{flex:1;background:var(--card);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;}
+.cinp:focus{border-color:var(--gold);}
+.csend{width:38px;height:38px;background:var(--gold);border:none;border-radius:6px;cursor:pointer;font-size:16px;color:#1a0800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tdots{display:flex;gap:4px;padding:10px 14px;}
+.td{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:tb 1.2s infinite;}
+.td:nth-child(2){animation-delay:.2s;}.td:nth-child(3){animation-delay:.4s;}
+@keyframes tb{0%,80%,100%{transform:translateY(0);opacity:.3;}40%{transform:translateY(-5px);opacity:1;}}
+.afab{position:fixed;right:24px;bottom:24px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#c9a96e,#7a5020);border:none;cursor:pointer;font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:#1a0800;box-shadow:0 4px 20px rgba(201,169,110,.4);transition:all .2s;z-index:80;}
+.afab:hover{transform:scale(1.08);}
+.pb5{height:5px;margin:8px 0 2px;}
+.perf-bar{background:var(--border2);border-radius:2px;height:5px;margin:6px 0 3px;}
+.perf-fill{height:100%;border-radius:2px;}
+.proj-mini{padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:5px;cursor:pointer;}
+.pm-name{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pm-meta{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px;}
+</style>
+</head>
+<body>
+<nav class="tnav">
+  <div class="tnav-logo">MCORP</div>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);padding:3px 10px;background:var(--card);border:1px solid var(--border2);border-radius:20px" id="navDate"></span>
+  <div class="tnav-right">
+    <div class="u-chip" onclick="toggleChat()">
+      <div class="u-orb" style="background:linear-gradient(135deg,#c9a96e,#7a5020);color:#1a0800">A</div>
+      <div><div class="u-name">Aaryan</div><div class="u-role">AI CEO</div></div>
+    </div>
+    <div class="u-chip" id="uChip">
+      <div class="u-orb" style="background:var(--card2);color:var(--gold)" id="uOrb">?</div>
+      <div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole"></div></div>
+    </div>
+    <button class="btn btn-gh" onclick="doLogout()" style="font-size:11px">Sign Out</button>
+  </div>
+</nav>
+
+<div class="shell">
+  <aside class="sbar">
+    <div class="sbar-sec">Overview</div>
+    <button class="ni on" onclick="showSec('dash',this)"><span class="ni-ic">⬡</span>Dashboard</button>
+    <div class="sbar-sec">Operations</div>
+    <button class="ni" onclick="showSec('projects',this)"><span class="ni-ic">◈</span>Projects<span class="nbadge g" id="pBadge">0</span></button>
+    <button class="ni" onclick="showSec('tasks',this)"><span class="ni-ic">✦</span>All Tasks<span class="nbadge" id="tBadge">0</span></button>
+    <button class="ni" onclick="showSec('vos',this)"><span class="ni-ic">⊕</span>Variations<span class="nbadge o" id="vBadge">0</span></button>
+    <div class="sbar-sec">Logistics</div>
+    <button class="ni" onclick="showSec('proc',this)"><span class="ni-ic">◰</span>Procurement<span class="nbadge" id="mBadge">0</span></button>
+    <div class="sbar-sec">People</div>
+    <button class="ni" onclick="showSec('team',this)"><span class="ni-ic">◫</span>Team</button>
+    <div class="sbar-sec">Projects</div>
+    <div id="sbProjects" style="padding:0 6px"></div>
+  </aside>
+
+  <div class="main">
+    <div class="pg">
+
+      <!-- DASH -->
+      <div id="s-dash">
+        <div id="alertArea" style="margin-bottom:12px"></div>
+        <div class="sg">
+          <div class="stat g"><div class="slbl">Active Projects</div><div class="sval" id="st1">—</div><div class="ssub">All engineers</div></div>
+          <div class="stat rd"><div class="slbl">Overdue Tasks</div><div class="sval" id="st2">—</div><div class="ssub">Need action now</div></div>
+          <div class="stat tl"><div class="slbl">Pending Materials</div><div class="sval" id="st3">—</div><div class="ssub">Awaiting Archana</div></div>
+          <div class="stat or"><div class="slbl">Unsigned VOs</div><div class="sval" id="st4">—</div><div class="ssub">Revenue at risk</div></div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="ch"><span class="ct">Projects</span><button class="btn btn-gh" onclick="showSec('projects',null)" style="font-size:10px">All →</button></div>
+            <div id="dashProjs" style="padding:12px 16px"></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Team Workload</span></div>
+            <div id="dashTeam" class="cb"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="ct">Priority Tasks</span><button class="btn btn-gh" onclick="showSec('tasks',null)" style="font-size:10px">All →</button></div>
+          <table class="tbl"><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody id="dashTasks"></tbody></table>
+        </div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div id="s-projects" style="display:none">
+        <div class="sh">All Projects <button class="btn btn-g" onclick="openM('addProj')">+ New Project</button></div>
+        <div id="projList"></div>
+      </div>
+
+      <!-- TASKS -->
+      <div id="s-tasks" style="display:none">
+        <div class="sh">All Tasks
+          <div style="display:flex;gap:8px">
+            <select class="fc" style="width:auto" id="taskFilter" onchange="renderTasks()">
+              <option value="">All</option>
+              <option>Sujin</option><option>Zubair</option><option>Anoop</option>
+              <option>Shibu</option><option>Aishwarya</option><option>Asiya</option><option>Archana</option>
+            </select>
+            <button class="btn btn-g" onclick="openM('addTask')">+ Assign Task</button>
+          </div>
+        </div>
+        <div class="card">
+          <table class="tbl"><thead><tr><th>Task</th><th>Project</th><th>Assigned To</th><th>Due Date</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="allTasksBody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- PROCUREMENT -->
+      <div id="s-proc" style="display:none">
+        <div class="sh">Procurement — Abin Log <button class="btn btn-t" onclick="openM('addMat')">+ Material Request</button></div>
+        <div class="astrip or on"><span>⚡</span><div><b>Flow:</b> Engineer requests → Zara checks duplicate → Archana approves → Abin collects</div></div>
+        <div class="card"><table class="tbl">
+          <thead><tr><th>Req #</th><th>Material</th><th>Project</th><th>By</th><th>Qty</th><th>AED</th><th>Urgency</th><th>Archana</th><th>Abin</th><th>Status</th></tr></thead>
+          <tbody id="procBody"></tbody></table></div>
+      </div>
+
+      <!-- VARIATIONS -->
+      <div id="s-vos" style="display:none">
+        <div class="sh">Variation Orders <button class="btn btn-g" onclick="openM('addVO')">+ New VO</button></div>
+        <div class="astrip rd on"><span>⚠</span><div><b>Rule:</b> No variation work starts until client signs. Aishwarya submits to client.</div></div>
+        <div class="card"><table class="tbl">
+          <thead><tr><th>VO #</th><th>Project</th><th>Description</th><th>AED</th><th>Raised By</th><th>Deadline</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="voBody"></tbody></table></div>
+      </div>
+
+      <!-- TEAM -->
+      <div id="s-team" style="display:none">
+        <div class="sh">Team Directory & Performance</div>
+        <div id="teamGrid"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- AARYAN CHAT -->
+<div class="chat-panel" id="chatPanel">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+    <div class="u-orb" style="width:40px;height:40px;font-size:20px;background:linear-gradient(135deg,#c9a96e,#7a5020);color:#1a0800">A</div>
+    <div><div style="font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;color:var(--gold)">Aaryan</div><div style="font-size:10px;color:var(--muted)">AI CEO · Online</div></div>
+    <button onclick="toggleChat()" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">✕</button>
+  </div>
+  <div class="cmain" id="chatMain">
+    <div class="cmsg ai"><div class="from">AARYAN · AI CEO</div>Good morning, Adarsh. I have full visibility across all 11 projects and your team of 9. What do you need?</div>
+  </div>
+  <div id="typingDots" style="display:none;padding:0 16px"><div class="tdots"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>
+  <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px">
+    <input class="cinp" id="aaryanInput" placeholder="Ask Aaryan anything..." onkeydown="if(event.key==='Enter')sendAaryan()">
+    <button class="csend" onclick="sendAaryan()">↑</button>
+  </div>
+</div>
+<button class="afab" onclick="toggleChat()" title="Talk to Aaryan">A</button>
+
+<!-- MODALS -->
+<div class="mov" id="m-addProj"><div class="modal">
+  <div class="mh"><span class="mt">New Project</span><button class="mx" onclick="closeM('addProj')">✕</button></div>
+  <div class="mb">
+    <div class="fr"><div class="fg"><label class="fl">Project Name</label><input class="fc" id="np-n"></div><div class="fg"><label class="fl">Type</label><select class="fc" id="np-t"><option>Villa Renovation</option><option>Apartment Renovation</option><option>Office Fit-out</option><option>Commercial</option><option>Landscaping</option><option>Joinery</option></select></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Lead Engineer</label><select class="fc" id="np-e"><option>Sujin</option><option>Zubair</option><option>Anoop</option></select></div><div class="fg"><label class="fl">Client</label><input class="fc" id="np-c"></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Start Date</label><input class="fc" id="np-s" type="date"></div><div class="fg"><label class="fl">End Date</label><input class="fc" id="np-ed" type="date"></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Contract Value (AED)</label><input class="fc" id="np-v" type="number"></div><div class="fg"><label class="fl">Floors</label><select class="fc" id="np-f"><option>GF+FF</option><option>GF</option><option>GF+FF+SF</option><option>Single Floor</option></select></div></div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fc" id="np-notes"></textarea></div>
+  </div>
+  <div class="mf"><button class="btn btn-gh" onclick="closeM('addProj')">Cancel</button><button class="btn btn-g" onclick="saveProj()">Create Project</button></div>
+</div></div>
+
+<div class="mov" id="m-addTask"><div class="modal">
+  <div class="mh"><span class="mt">Assign Task</span><button class="mx" onclick="closeM('addTask')">✕</button></div>
+  <div class="mb">
+    <div class="fg"><label class="fl">Task Description</label><input class="fc" id="nt-d" placeholder="What needs to be done?"></div>
+    <div class="fr"><div class="fg"><label class="fl">Project</label><select class="fc" id="nt-p"></select></div><div class="fg"><label class="fl">Assign To</label><select class="fc" id="nt-a"><option>Sujin</option><option>Zubair</option><option>Anoop</option><option>Shibu</option><option>Aishwarya</option><option>Asiya</option><option>Archana</option><option>Abin Philip</option></select></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Due Date</label><input class="fc" id="nt-due" type="date"></div><div class="fg"><label class="fl">Priority</label><select class="fc" id="nt-pri"><option>High</option><option selected>Medium</option><option>Low</option></select></div></div>
+    <div class="fg"><label class="fl">Category</label><select class="fc" id="nt-cat"><option>Site Execution</option><option>Design</option><option>Drawings</option><option>Client Follow-up</option><option>Procurement</option><option>Finance</option><option>Approval</option><option>Handover</option></select></div>
+  </div>
+  <div class="mf"><button class="btn btn-gh" onclick="closeM('addTask')">Cancel</button><button class="btn btn-g" onclick="saveTask()">Assign Task</button></div>
+</div></div>
+
+<div class="mov" id="m-addMat"><div class="modal">
+  <div class="mh"><span class="mt">Material Request</span><button class="mx" onclick="closeM('addMat')">✕</button></div>
+  <div class="mb">
+    <div class="astrip rd" id="dupW"><span>⚠</span><div><b>Zara Alert:</b> Similar material may already be ordered for this project.</div></div>
+    <div class="fr"><div class="fg"><label class="fl">Material</label><input class="fc" id="nm-m" placeholder="e.g. Bathroom tiles 30x60 beige" oninput="chkDup()"></div><div class="fg"><label class="fl">Project</label><select class="fc" id="nm-p" onchange="chkDup()"></select></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Requested By</label><select class="fc" id="nm-by"><option>Sujin</option><option>Zubair</option><option>Anoop</option><option>Shibu</option></select></div><div class="fg"><label class="fl">Quantity + Unit</label><input class="fc" id="nm-q" placeholder="e.g. 45 sqm"></div></div>
+    <div class="fr"><div class="fg"><label class="fl">Est. Cost (AED)</label><input class="fc" id="nm-c" type="number"></div><div class="fg"><label class="fl">Urgency</label><select class="fc" id="nm-u"><option>Normal</option><option>Urgent</option></select></div></div>
+    <div class="fg"><label class="fl">Supplier / Shop</label><input class="fc" id="nm-s" placeholder="e.g. Tile Kingdom, Deira"></div>
+  </div>
+  <div class="mf"><button class="btn btn-gh" onclick="closeM('addMat')">Cancel</button><button class="btn btn-t" onclick="saveMat()">Submit to Archana + Abin</button></div>
+</div></div>
+
+<div class="mov" id="m-addVO"><div class="modal">
+  <div class="mh"><span class="mt">New Variation Order</span><button class="mx" onclick="closeM('addVO')">✕</button></div>
+  <div class="mb">
+    <div class="astrip or on"><span>⚡</span><div>No work starts until client signs. Aishwarya will submit.</div></div>
+    <div class="fr"><div class="fg"><label class="fl">Project</label><select class="fc" id="nv-p"></select></div><div class="fg"><label class="fl">Amount (AED)</label><input class="fc" id="nv-a" type="number"></div></div>
+    <div class="fg"><label class="fl">Description</label><textarea class="fc" id="nv-d"></textarea></div>
+    <div class="fr"><div class="fg"><label class="fl">Raised By</label><select class="fc" id="nv-by"><option>Sujin</option><option>Zubair</option><option>Anoop</option></select></div><div class="fg"><label class="fl">Sign-by Deadline</label><input class="fc" id="nv-dl" type="date"></div></div>
+  </div>
+  <div class="mf"><button class="btn btn-gh" onclick="closeM('addVO')">Cancel</button><button class="btn btn-g" onclick="saveVO()">Create + Assign to Aishwarya</button></div>
+</div></div>
+
+<script type="module">
+import {
+  requireAuth, logout, getProjects, addProject, updateProject,
+  getTasks, addTask, updateTask,
+  getMaterials, addMaterial, updateMaterial, checkDuplicate,
+  getVariations, addVariation, updateVariation,
+  fmtDate, isOverdue, toast, showLoading, hideLoading, Timestamp
+} from './auth.js';
+
+const TEAM = [
+  {n:'Sujin',r:'Site Engineer',c:'#c9a96e',p:88},
+  {n:'Zubair',r:'Site Engineer',c:'#4f82d9',p:82},
+  {n:'Anoop',r:'Site Engineer',c:'#4fcdc9',p:79},
+  {n:'Shibu',r:'Site Foreman',c:'#d98b4f',p:85},
+  {n:'Abin Philip',r:'Procurement Driver',c:'#a07fd9',p:90},
+  {n:'Aishwarya',r:'Designer/Estimator',c:'#d97fb0',p:88},
+  {n:'Asiya',r:'Draftsman',c:'#4f82d9',p:85},
+  {n:'Archana',r:'Accountant',c:'#4caf7a',p:92},
+];
+
+let P=[],T=[],M=[],V=[];
+let chatHist=[];
+
+requireAuth(['owner'], async (user, profile) => {
+  document.getElementById('uName').textContent = profile.name||'Adarsh';
+  document.getElementById('uRole').textContent = 'Owner';
+  document.getElementById('uOrb').textContent = (profile.name||'A')[0].toUpperCase();
+  document.getElementById('navDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+  await loadAll();
+  hideLoading();
+});
+
+window.doLogout = () => logout();
+
+async function loadAll() {
+  [P,T,M,V] = await Promise.all([getProjects(),getTasks(),getMaterials(),getVariations()]);
+  fillDropdowns();
+  renderDash(); renderProjects(); renderTasks(); renderProc(); renderVOs(); renderTeam(); renderSidebar();
+}
+
+function fillDropdowns() {
+  const names = P.map(p=>p.name);
+  ['nt-p','nm-p','nv-p'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=names.map(n=>`<option>${n}</option>`).join('');
+  });
+}
+
+function renderSidebar() {
+  const c=document.getElementById('sbProjects');
+  c.innerHTML=P.map(p=>{
+    const col=p.engineer?.includes('Sujin')?'#c9a96e':p.engineer?.includes('Zubair')?'#4f82d9':'#4fcdc9';
+    return `<div class="proj-mini"><div class="pm-name">${p.name}</div><div class="pm-meta" style="color:${col}">${p.engineer}</div><div class="pb" style="height:2px;margin-top:4px"><div class="pbf" style="width:${p.progress||0}%;background:${col}"></div></div></div>`;
+  }).join('');
+}
+
+function renderDash() {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const OD=T.filter(t=>t.status==='Pending'&&t.dueDate?.toDate&&t.dueDate.toDate()<today);
+  const PM=M.filter(m=>!m.archanaApproved);
+  const UV=V.filter(v=>v.status==='Unsigned');
+  document.getElementById('st1').textContent=P.length;
+  document.getElementById('st2').textContent=OD.length;
+  document.getElementById('st3').textContent=PM.length;
+  document.getElementById('st4').textContent=UV.length;
+  document.getElementById('pBadge').textContent=P.length;
+  document.getElementById('tBadge').textContent=T.filter(t=>t.status!=='Done').length;
+  document.getElementById('vBadge').textContent=UV.length;
+  document.getElementById('mBadge').textContent=PM.length;
+  // alerts
+  let a='';
+  if(OD.length) a+=`<div class="astrip rd on"><span>⚠</span><div><b>${OD.length} tasks overdue</b> — Needs immediate action</div></div>`;
+  if(UV.length) a+=`<div class="astrip or on"><span>◷</span><div><b>${UV.length} unsigned VOs</b> — Aishwarya to follow up with clients</div></div>`;
+  document.getElementById('alertArea').innerHTML=a;
+  // proj list
+  const dp=document.getElementById('dashProjs');
+  dp.innerHTML=P.slice(0,6).map(p=>{
+    const col=p.engineer?.includes('Sujin')?'var(--gold)':p.engineer?.includes('Zubair')?'var(--blue)':'var(--teal)';
+    return `<div class="proj-card" style="border-left:3px solid ${col}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:${col}">${p.progress||0}%</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${col};margin-top:2px">${p.engineer} · ${p.type}</div>
+      <div class="pb" style="margin-top:8px"><div class="pbf" style="width:${p.progress||0}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+  // team
+  const dt=document.getElementById('dashTeam');
+  dt.innerHTML=TEAM.filter(m=>['Sujin','Zubair','Anoop'].includes(m.n)).map(m=>{
+    const mt=T.filter(t=>t.assignedTo===m.n&&t.status!=='Done').length;
+    const od=T.filter(t=>t.assignedTo===m.n&&t.status==='Pending'&&t.dueDate?.toDate&&t.dueDate.toDate()<today).length;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:32px;height:32px;border-radius:50%;background:${m.c}22;border:1px solid ${m.c}44;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:700;color:${m.c};flex-shrink:0">${m.n[0]}</div>
+      <div style="flex:1"><div style="font-weight:500;font-size:12px">${m.n}</div>
+      <div class="perf-bar"><div class="perf-fill" style="width:${m.p}%;background:${m.c}"></div></div></div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:${od?'var(--red)':'var(--muted)'}">${mt} tasks${od?` · ${od} OD!`:''}</div>
+        <div style="font-size:10px;color:${m.c};font-family:'JetBrains Mono',monospace">${m.p}%</div>
+      </div></div>`;
+  }).join('');
+  // tasks
+  const dt2=document.getElementById('dashTasks');
+  const sorted=[...T].filter(t=>t.status!=='Done').sort((a,b)=>{const p={High:0,Medium:1,Low:2};return (p[a.priority]||1)-(p[b.priority]||1);}).slice(0,8);
+  dt2.innerHTML=sorted.map(t=>{
+    const od=t.dueDate?.toDate&&t.dueDate.toDate()<today;
+    const due=t.dueDate?.toDate?t.dueDate.toDate().toLocaleDateString('en-GB'):'—';
+    return `<tr>
+      <td style="max-width:200px"><div style="font-size:12px">${(t.description||'').substring(0,55)}${(t.description||'').length>55?'…':''}</div></td>
+      <td style="font-size:11px;color:var(--gold)">${t.project||'—'}</td>
+      <td style="font-size:12px">${t.assignedTo||'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;${od?'color:var(--red)':''}">${due}${od?' ✕':''}</td>
+      <td><span class="pr pr-${t.priority==='High'?'h':t.priority==='Medium'?'m':'l'}">${t.priority||'Med'}</span></td>
+      <td><span class="st ${od?'st-o':t.status==='In Progress'?'st-i':'st-p'}">${od?'Overdue':t.status}</span></td>
+      <td><button class="btn btn-gh" style="font-size:10px;padding:3px 8px" onclick="markDone('${t.id}')">✓</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderProjects() {
+  const el=document.getElementById('projList');
+  if(!P.length){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">No projects yet. Click + New Project.</div>';return;}
+  el.innerHTML=P.map(p=>{
+    const col=p.engineer?.includes('Sujin')?'#c9a96e':p.engineer?.includes('Zubair')?'#4f82d9':'#4fcdc9';
+    const pend=(p.pending||[]).length;
+    return `<div class="card" style="border-left:3px solid ${col};margin-bottom:12px">
+      <div class="ch">
+        <div><div class="ct">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px">${p.type} · ${p.floors||'GF+FF'} · <span style="color:${col}">${p.engineer}</span></div>
+        ${p.notes?`<div style="font-size:11px;color:var(--orange);margin-top:2px">${p.notes}</div>`:''}</div>
+        <div style="text-align:right"><div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:${col}">${p.progress||0}%</div><div style="font-size:10px;color:var(--muted)">${pend} pending</div></div>
+      </div>
+      <div style="padding:10px 18px">
+        <div class="pb pb5"><div class="pbf" style="width:${p.progress||0}%;background:${col}"></div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          ${(p.pending||[]).slice(0,4).map(item=>`<span style="font-size:11px;padding:2px 9px;background:var(--card2);border:1px solid var(--border2);border-radius:20px;color:var(--muted)">${item}</span>`).join('')}
+          ${pend>4?`<span style="font-size:11px;padding:2px 9px;background:var(--goldx);border:1px solid rgba(201,169,110,.2);border-radius:20px;color:var(--gold)">+${pend-4} more</span>`:''}
+        </div>
+      </div>
+      <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px">
+        <button class="btn btn-gh" onclick="openM('addTask')">+ Task</button>
+        <button class="btn btn-gh" onclick="openM('addMat')">+ Material</button>
+        <button class="btn btn-gh" onclick="openM('addVO')">+ VO</button>
+        <button class="btn btn-t" style="margin-left:auto" onclick="updProg('${p.id}','${p.name}')">Update %</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTasks() {
+  const tbody=document.getElementById('allTasksBody');
+  const today=new Date(); today.setHours(0,0,0,0);
+  const f=document.getElementById('taskFilter')?.value||'';
+  let tasks=T.filter(t=>t.status!=='Done');
+  if(f) tasks=tasks.filter(t=>t.assignedTo===f);
+  tasks.sort((a,b)=>{const p={High:0,Medium:1,Low:2};return (p[a.priority]||1)-(p[b.priority]||1);});
+  tbody.innerHTML=tasks.map(t=>{
+    const od=t.dueDate?.toDate&&t.dueDate.toDate()<today;
+    const due=t.dueDate?.toDate?t.dueDate.toDate().toLocaleDateString('en-GB'):'—';
+    return `<tr>
+      <td style="max-width:240px"><div style="font-size:12px;font-weight:500">${(t.description||'').substring(0,65)}${(t.description||'').length>65?'…':''}</div><div style="font-size:10px;color:var(--muted)">${t.category||''}</div></td>
+      <td style="font-size:11px;color:var(--gold)">${t.project||'—'}</td>
+      <td style="font-size:12px">${t.assignedTo||'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;${od?'color:var(--red)':''}">${due}${od?' ✕':''}</td>
+      <td><span class="pr pr-${t.priority==='High'?'h':t.priority==='Medium'?'m':'l'}">${t.priority||'Med'}</span></td>
+      <td><span class="st ${od?'st-o':t.status==='In Progress'?'st-i':'st-p'}">${od?'Overdue':t.status}</span></td>
+      <td><button class="btn btn-gh" style="font-size:10px;padding:3px 8px" onclick="markDone('${t.id}')">✓ Done</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">All tasks complete!</td></tr>';
+}
+
+function renderProc() {
+  const tbody=document.getElementById('procBody');
+  let i=1;
+  tbody.innerHTML=M.map(m=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)">MAT-${String(i++).padStart(3,'0')}</td>
+    <td style="font-size:12px;font-weight:500">${m.material||'—'}</td>
+    <td style="font-size:11px;color:var(--gold)">${m.project||'—'}</td>
+    <td style="font-size:12px">${m.requestedBy||'—'}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${m.quantity||'—'}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${m.estimatedCost?Number(m.estimatedCost).toLocaleString():'TBD'}</td>
+    <td><span class="st ${m.urgency==='Urgent'?'st-o':'st-p'}" style="font-size:9px">${m.urgency||'Normal'}</span></td>
+    <td><button class="btn btn-${m.archanaApproved?'gr':'gh'}" style="font-size:10px;padding:3px 8px" onclick="appArch('${m.id}')">${m.archanaApproved?'✓ Done':'Approve'}</button></td>
+    <td><button class="btn btn-${m.abinCollected?'gr':'gh'}" style="font-size:10px;padding:3px 8px" onclick="markColl('${m.id}')">${m.abinCollected?'✓ Done':'Collected'}</button></td>
+    <td><span class="st ${m.abinCollected?'st-d':m.archanaApproved?'st-i':'st-p'}" style="font-size:9px">${m.abinCollected?'Delivered':m.archanaApproved?'Abin Collecting':'Pending'}</span></td>
+  </tr>`).join('')||'<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted)">No material requests yet</td></tr>';
+}
+
+function renderVOs() {
+  const tbody=document.getElementById('voBody');
+  let i=1;
+  tbody.innerHTML=V.map(v=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">VO-${String(i++).padStart(3,'0')}</td>
+    <td style="font-size:11px;color:var(--gold)">${v.project||'—'}</td>
+    <td style="font-size:12px;max-width:200px">${(v.description||'').substring(0,55)}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${v.status==='Signed'?'var(--green)':'var(--red)'}">AED ${Number(v.amount||0).toLocaleString()}</td>
+    <td style="font-size:12px">${v.raisedBy||'—'}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${v.deadline||'—'}</td>
+    <td><span class="st ${v.status==='Signed'?'st-d':'st-o'}">${v.status}</span></td>
+    <td>${v.status!=='Signed'?`<button class="btn btn-g" style="font-size:10px;padding:3px 8px" onclick="signVO('${v.id}')">Mark Signed</button>`:'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">No VOs yet</td></tr>';
+}
+
+function renderTeam() {
+  const el=document.getElementById('teamGrid');
+  const today=new Date(); today.setHours(0,0,0,0);
+  el.innerHTML=`
+    <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--gold);margin-bottom:10px">SITE ENGINEERS</div>
+    <div class="g3" style="margin-bottom:20px">${TEAM.filter(m=>['Sujin','Zubair','Anoop'].includes(m.n)).map(tc).join('')}</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--teal);margin-bottom:10px">SUPPORT</div>
+    <div class="g2" style="margin-bottom:20px">${TEAM.filter(m=>['Shibu','Abin Philip'].includes(m.n)).map(tc).join('')}</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--purple);margin-bottom:10px">OFFICE STAFF</div>
+    <div class="g3">${TEAM.filter(m=>['Aishwarya','Asiya','Archana'].includes(m.n)).map(tc).join('')}</div>`;
+
+  function tc(m) {
+    const mt=T.filter(t=>t.assignedTo===m.n&&t.status!=='Done').length;
+    const mp=P.filter(p=>p.engineer?.includes(m.n)).length;
+    return `<div class="card" style="padding:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:${m.c}22;border:1px solid ${m.c}44;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:${m.c}">${m.n[0]}</div>
+        <div><div style="font-weight:600;font-size:13px">${m.n}</div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${m.r}</div></div>
+        <div style="margin-left:auto;text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${m.c}">${m.p}%</div><div style="font-size:9px;color:var(--muted)">perf</div></div>
+      </div>
+      <div class="perf-bar"><div class="perf-fill" style="width:${m.p}%;background:${m.c}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px"><span>${mp} projects</span><span style="color:${mt>5?'var(--red)':'var(--muted)'}">${mt} open tasks</span></div>
+    </div>`;
+  }
+}
+
+// ACTIONS
+window.showSec = (id, btn) => {
+  ['dash','projects','tasks','proc','vos','team'].forEach(s=>{ document.getElementById('s-'+s).style.display=s===id?'block':'none'; });
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+};
+window.renderTasks = renderTasks;
+window.markDone = async id => { await updateTask(id,{status:'Done'}); T=T.map(t=>t.id===id?{...t,status:'Done'}:t); renderDash();renderTasks();toast('Task done ✓'); };
+window.appArch = async id => { await updateMaterial(id,{archanaApproved:true}); M=M.map(m=>m.id===id?{...m,archanaApproved:true}:m); renderProc();renderDash();toast('Approved ✓'); };
+window.markColl = async id => { await updateMaterial(id,{abinCollected:true}); M=M.map(m=>m.id===id?{...m,abinCollected:true}:m); renderProc();renderDash();toast('Collected ✓'); };
+window.signVO = async id => { await updateVariation(id,{status:'Signed'}); V=V.map(v=>v.id===id?{...v,status:'Signed'}:v); renderVOs();renderDash();toast('VO signed ✓'); };
+window.updProg = async (id,name) => {
+  const pct=prompt(`Update progress for ${name} (0-100):`);
+  if(pct===null) return;
+  await updateProject(id,{progress:Math.min(100,Math.max(0,+pct))});
+  P=P.map(p=>p.id===id?{...p,progress:Math.min(100,Math.max(0,+pct))}:p);
+  renderProjects();renderDash();renderSidebar();toast('Progress updated ✓');
+};
+
+// MODALS
+window.openM = id => document.getElementById('m-'+id).classList.add('op');
+window.closeM = id => document.getElementById('m-'+id).classList.remove('op');
+document.querySelectorAll('.mov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('op');}));
+
+window.chkDup = async () => {
+  const mat=document.getElementById('nm-m').value, proj=document.getElementById('nm-p').value;
+  if(mat.length<4||!proj) return;
+  const d=await checkDuplicate(mat,proj);
+  document.getElementById('dupW').classList.toggle('on',d);
+};
+
+window.saveProj = async () => {
+  showLoading('CREATING...');
+  try {
+    await addProject({name:document.getElementById('np-n').value,type:document.getElementById('np-t').value,engineer:document.getElementById('np-e').value,client:document.getElementById('np-c').value,startDate:document.getElementById('np-s').value,endDate:document.getElementById('np-ed').value,value:+document.getElementById('np-v').value||0,floors:document.getElementById('np-f').value,notes:document.getElementById('np-notes').value,progress:0,status:'active',pending:[]});
+    closeM('addProj');await loadAll();hideLoading();toast('Project created ✓');
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+
+window.saveTask = async () => {
+  const due=new Date(document.getElementById('nt-due').value);
+  showLoading('ASSIGNING...');
+  try {
+    await addTask({description:document.getElementById('nt-d').value,project:document.getElementById('nt-p').value,assignedTo:document.getElementById('nt-a').value,dueDate:Timestamp.fromDate(due),priority:document.getElementById('nt-pri').value,category:document.getElementById('nt-cat').value,createdBy:'Adarsh'});
+    closeM('addTask');await loadAll();hideLoading();toast('Task assigned ✓');
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+
+window.saveMat = async () => {
+  const mat=document.getElementById('nm-m').value,proj=document.getElementById('nm-p').value;
+  showLoading('CHECKING...');
+  const dup=await checkDuplicate(mat,proj);
+  if(dup&&!confirm(`⚠ Zara: Similar material exists for ${proj}. Still submit?`)){hideLoading();return;}
+  try {
+    await addMaterial({material:mat,project:proj,requestedBy:document.getElementById('nm-by').value,quantity:document.getElementById('nm-q').value,estimatedCost:+document.getElementById('nm-c').value||0,urgency:document.getElementById('nm-u').value,supplier:document.getElementById('nm-s').value});
+    closeM('addMat');await loadAll();hideLoading();toast('Material request logged ✓');
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+
+window.saveVO = async () => {
+  showLoading('CREATING VO...');
+  try {
+    await addVariation({project:document.getElementById('nv-p').value,description:document.getElementById('nv-d').value,amount:+document.getElementById('nv-a').value||0,raisedBy:document.getElementById('nv-by').value,deadline:document.getElementById('nv-dl').value,submittedBy:'Aishwarya'});
+    closeM('addVO');await loadAll();hideLoading();toast('VO created ✓');
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+
+// AARYAN
+window.toggleChat = () => document.getElementById('chatPanel').classList.toggle('open');
+window.sendAaryan = async () => {
+  const inp=document.getElementById('aaryanInput');
+  const txt=inp.value.trim(); if(!txt) return;
+  inp.value='';
+  const m=document.getElementById('chatMain');
+  m.innerHTML+=`<div class="cmsg usr">${txt}</div>`;
+  document.getElementById('typingDots').style.display='block';
+  m.scrollTop=m.scrollHeight;
+  chatHist.push({role:'user',content:txt});
+  try{
+    const r=await fetch('/.netlify/functions/aaryan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,
+        system:`You are Aaryan, AI CEO of Mcorp Interiors Dubai. Owner: Adarsh.\nProjects(${P.length}): ${P.map(p=>`${p.name}(${p.engineer},${p.progress||0}%)`).join(', ')}\nOpen tasks: ${T.filter(t=>t.status!=='Done').length} | Unsigned VOs: ${V.filter(v=>v.status==='Unsigned').length} | Pending mats: ${M.filter(m=>!m.archanaApproved).length}\nTeam: Sujin(eng), Zubair(eng), Anoop(eng), Shibu(foreman), Aishwarya(designer), Asiya(drafts), Archana(accounts), Abin(procurement). Answer concisely.`,
+        messages:chatHist.slice(-10)})
+    });
+    const d=await r.json();
+    const reply=d.content?.[0]?.text||'I had trouble. Try again.';
+    chatHist.push({role:'assistant',content:reply});
+    document.getElementById('typingDots').style.display='none';
+    m.innerHTML+=`<div class="cmsg ai"><div class="from">AARYAN · AI CEO</div>${reply.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>`;
+    m.scrollTop=m.scrollHeight;
+  }catch(e){
+    document.getElementById('typingDots').style.display='none';
+    m.innerHTML+=`<div class="cmsg ai"><div class="from">AARYAN</div>Add your Anthropic API key in dashboard.html to enable AI chat.</div>`;
+  }
+};
+document.getElementById('aaryanInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')sendAaryan();});
+
+// init
+['projects','tasks','proc','vos','team'].forEach(s=>document.getElementById('s-'+s).style.display='none');
+</script>
+</body>
+</html>
