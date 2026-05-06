@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mcorp — Setup Wizard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+body{background:#07070a;color:#ede9e0;font-family:'DM Sans',sans-serif;padding:32px;max-width:700px;margin:0 auto;}
+h1{font-size:28px;color:#c9a96e;margin-bottom:4px;}
+.sub{color:#585868;font-size:13px;margin-bottom:28px;}
+.log{background:#0d0d12;border:1px solid #1c1c26;border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;height:320px;overflow-y:auto;margin:16px 0;}
+.log-line{margin-bottom:4px;}
+.ok{color:#4caf7a;}.err{color:#d94f4f;}.info{color:#c9a96e;}.muted{color:#585868;}
+.btn{padding:12px 24px;background:#c9a96e;color:#1a0e00;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.warn{background:rgba(217,139,79,.08);border:1px solid rgba(217,139,79,.25);color:#d98b4f;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:20px;}
+</style>
+</head>
+<body>
+<h1>Mcorp Setup Wizard</h1>
+<div class="sub">Run this ONCE to create all user accounts and seed all 12 projects. Then delete this file.</div>
+<div class="warn">⚠ Run as Adarsh (owner). This creates 9 user accounts and seeds 12 projects. Only run once. After running, delete setup.html from your hosting.</div>
+<button class="btn" id="runBtn" onclick="runSetup()">🚀 Run Full Setup</button>
+<button class="btn" onclick="clearLog()" style="background:transparent;color:#585868;border:1px solid #1c1c26">Clear Log</button>
+<div class="log" id="log"><div class="log-line muted">Ready. Click Run Full Setup to begin.</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, setDoc, addDoc, collection, doc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATb3dKCkx0D2K_bLnwLYcVKRHGcTzfUFg",
+  authDomain: "mcorp-os.firebaseapp.com",
+  projectId: "mcorp-os",
+  storageBucket: "mcorp-os.firebasestorage.app",
+  messagingSenderId: "886290163748",
+  appId: "1:886290163748:web:010f2f466db99eca8a90b1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const USERS = [
+  { email:"adarsh@mcorp-interiors.com", password:"Mcorp@Owner2025", name:"Adarsh", role:"owner" },
+  { email:"sujin@mcorp-interiors.com", password:"Sujin@2025", name:"Sujin", role:"engineer" },
+  { email:"zubair@mcorp-interiors.com", password:"Zubair@2025", name:"Zubair", role:"engineer" },
+  { email:"anoop@mcorp-interiors.com", password:"Anoop@2025", name:"Anoop", role:"engineer" },
+  { email:"shibu@mcorp-interiors.com", password:"Shibu@2025", name:"Shibu", role:"foreman" },
+  { email:"aishwarya@mcorp-interiors.com", password:"Aish@2025", name:"Aishwarya", role:"designer" },
+  { email:"asiya@mcorp-interiors.com", password:"Asiya@2025", name:"Asiya", role:"draftsman" },
+  { email:"archana@mcorp-interiors.com", password:"Arch@2025", name:"Archana", role:"accountant" },
+  { email:"abin@mcorp-interiors.com", password:"Abin@2025", name:"Abin Philip", role:"procurement" },
+];
+
+const PROJECTS = [
+  {name:"Samara 28",type:"Villa Renovation",engineer:"Sujin",stage:"Completion",floors:"GF+FF",progress:90,status:"active",notes:"",pending:["Wall painting","Tile grouting","Sliding door installation","TV unit built-in","Tile finish","Bathroom fixtures","Client sign-off letter"]},
+  {name:"Samara 148",type:"Villa Renovation",engineer:"Sujin / Zubair",stage:"Completion",floors:"GF+FF",progress:85,status:"active",notes:"Zubair to inspect and report to Sujin",pending:["Balcony tile replacement","Bathroom tile replacement","Painting touch-up"]},
+  {name:"Lila 45",type:"Villa Renovation",engineer:"Anoop",stage:"New — Full Scope",floors:"GF+FF",progress:10,status:"active",notes:"Demolition complete. All remaining villa scope GF+FF.",pending:["Lintel and plastering","Block work and partition","Plumbing chase","Electrical chase","Electrical boxes","Concealed sanitary ware","WC ledge boarding","Waterproofing","Bathroom screeding","Ceiling electrical","AC duct + machine","Bathroom tiling","Main floor screeding","Ceiling and bulkhead","MEP testing","Ceiling close","Floor tiling","Window fixing","Wall painting","Ceiling painting","Lights + sockets","AC grilles","Bathroom fittings","External painting","Drawings: all 6 layouts (Asiya)","3D Renders (Aishwarya — 1 month)"]},
+  {name:"Casa 32",type:"Villa Renovation",engineer:"Zubair",stage:"Completion",floors:"GF+FF",progress:80,status:"active",notes:"",pending:["Water filter","Main door wooden","Pump room roof","WC flush plate","Kitchen joinery","Vanity counters","Glass shower partition","Wardrobe","Deep cleaning","Grouting"]},
+  {name:"Casa 192",type:"Villa Renovation",engineer:"Zubair",stage:"Completion",floors:"GF+FF",progress:82,status:"active",notes:"",pending:["External painting F+R","Internal painting foyer","Bar ceiling + access panel","Kitchen top"]},
+  {name:"Casa 219",type:"Villa Renovation",engineer:"Sujin",stage:"Completion",floors:"GF+FF",progress:95,status:"active",notes:"",pending:["External fence work"]},
+  {name:"Sport City Caledia 67",type:"Villa Renovation",engineer:"Sujin",stage:"In Progress",floors:"GF+FF",progress:35,status:"active",notes:"",pending:["External steel extension","Window installation","AC works","Roof screeding","Waterproofing","Tiling","Block work and plaster"]},
+  {name:"Ghadeer Villa 28",type:"Villa Renovation",engineer:"Zubair",stage:"Completion",floors:"GF+FF",progress:85,status:"active",notes:"",pending:["Socket works","Painting","Pergola","Fence","Snag touch-up"]},
+  {name:"Hattan 3 Villa 18A",type:"Villa Renovation",engineer:"Zubair",stage:"New — Full Scope",floors:"GF+FF+SF",progress:20,status:"active",notes:"⚠ 3 FLOORS: GF+FF+SF. Demo+block+lintel done. GF screed done. FF+SF screed + all remaining scope for 3 floors.",pending:["FF screeding","SF screeding","GF+FF+SF: Plumbing chase","GF+FF+SF: Electrical chase","GF+FF+SF: Electrical boxes","GF+FF+SF: Concealed sanitary ware","GF+FF+SF: WC ledge boarding","GF+FF+SF: Waterproofing","GF+FF+SF: Ceiling electrical","GF+FF+SF: AC duct + machine","GF+FF+SF: Bathroom tiling","GF+FF+SF: Ceiling + bulkhead","GF+FF+SF: MEP testing","GF+FF+SF: Ceiling close","GF+FF+SF: Floor tiling","GF+FF+SF: Window fixing","GF+FF+SF: Wall painting","GF+FF+SF: Ceiling painting","GF+FF+SF: Lights + sockets","GF+FF+SF: AC grilles","GF+FF+SF: Bathroom fittings","GF+FF+SF: External painting","Drawings: all 6 layouts 3 floors (Asiya)"]},
+  {name:"Al Reem Villa 35",type:"Villa Renovation",engineer:"Sujin",stage:"Completion",floors:"GF+FF",progress:88,status:"active",notes:"",pending:["Outhouse floor","Painting","Skirting","Ceiling boarding + painting","Threshold"]},
+  {name:"Green Community Villa 14304",type:"Villa Renovation",engineer:"Sujin",stage:"Completion",floors:"GF",progress:70,status:"active",notes:"",pending:["Kitchen floor removal","Screeding","Tile sample to client","New kitchen tiling","Grouting","Skirting"]},
+  {name:"Vinesta Office",type:"Office Fit-out",engineer:"Anoop",stage:"Completion",floors:"Single Floor",progress:75,status:"active",notes:"",client:"Vinesta",pending:["Carpet flooring","Pod 1: tile + wall","Pod 2: tile + wall","Pod 3: tile + wall","Pod 4: tile + wall","Pod 5: tile + wall"]},
+];
+
+function log(msg, type='info') {
+  const el=document.getElementById('log');
+  el.innerHTML+=`<div class="log-line ${type}">${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+window.clearLog=()=>{ document.getElementById('log').innerHTML=''; };
+
+window.runSetup = async () => {
+  document.getElementById('runBtn').disabled=true;
+  log('═══════════════════════════════');
+  log('MCORP SETUP STARTING...');
+  log('═══════════════════════════════');
+
+  // Step 1: Create users
+  log('Step 1: Creating user accounts...', 'info');
+  for (const u of USERS) {
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, u.email, u.password);
+      await setDoc(doc(db, 'users', cred.user.uid), { name:u.name, role:u.role, email:u.email, createdAt:Timestamp.now() });
+      log(`✓ ${u.name} (${u.role}) — ${u.email}`, 'ok');
+    } catch(e) {
+      if(e.code==='auth/email-already-in-use') {
+        log(`⚠ ${u.name} already exists (skipped)`, 'muted');
+      } else {
+        log(`✗ Failed ${u.name}: ${e.message}`, 'err');
+      }
+    }
+  }
+
+  // Step 2: Seed projects
+  log('');
+  log('Step 2: Seeding 12 projects...', 'info');
+  for (const p of PROJECTS) {
+    try {
+      await addDoc(collection(db, 'projects'), { ...p, value:0, client:p.client||'—', createdAt:Timestamp.now() });
+      log(`✓ Project: ${p.name} (${p.engineer})`, 'ok');
+    } catch(e) {
+      log(`✗ Failed ${p.name}: ${e.message}`, 'err');
+    }
+  }
+
+  log('');
+  log('═══════════════════════════════');
+  log('✓ SETUP COMPLETE!', 'ok');
+  log('');
+  log('NEXT STEPS:', 'info');
+  log('1. Open index.html and sign in as adarsh@mcorp-interiors.com', 'muted');
+  log('2. Password: Mcorp@Owner2025', 'muted');
+  log('3. Delete setup.html from Firebase Hosting after testing', 'muted');
+  log('');
+  log('LOGIN CREDENTIALS TO SHARE:', 'info');
+  USERS.forEach(u => log(`${u.name}: ${u.email} / ${u.password}`, 'muted'));
+  log('═══════════════════════════════');
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mcorp — My Tasks</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.tc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:border-color .15s;}
+.tc.od{border-color:rgba(217,79,79,.4);background:rgba(217,79,79,.04);}
+.tc.td{border-color:rgba(217,139,79,.35);}
+.tc-title{font-size:14px;font-weight:600;margin-bottom:6px;line-height:1.4;}
+.tc-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+.tc-proj{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);padding:2px 8px;background:var(--goldx);border-radius:20px;}
+.upd-form{background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-top:12px;display:none;}
+.upd-form.open{display:block;}
+.cam{width:100%;padding:12px;background:var(--card2);border:2px dashed var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all .15s;text-align:center;margin-top:6px;}
+.cam:hover{border-color:var(--gold);color:var(--gold);}
+.tnav-tabs{display:flex;gap:0;margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px;width:fit-content;}
+.tt{padding:8px 16px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;border:none;background:none;font-family:'DM Sans',sans-serif;}
+.tt.on{background:var(--gold);color:#1a0e00;}
+.tt:hover:not(.on){color:var(--white);}
+</style>
+</head>
+<body>
+<nav class="tnav">
+  <div class="tnav-logo">MCORP</div>
+  <div class="tnav-right">
+    <div class="u-chip" id="uChip">
+      <div class="u-orb" id="uOrb" style="background:var(--goldx);color:var(--gold)">?</div>
+      <div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole"></div></div>
+    </div>
+    <button class="btn btn-gh" onclick="doLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="shell">
+  <aside class="sbar">
+    <div class="sbar-sec">My Work</div>
+    <button class="ni on" onclick="showTab('tasks',this)"><span class="ni-ic">✦</span>My Tasks<span class="nbadge" id="tBadge">0</span></button>
+    <button class="ni" onclick="showTab('update',this)"><span class="ni-ic">📸</span>Site Update</button>
+    <button class="ni" onclick="showTab('mat',this)"><span class="ni-ic">◰</span>Request Material</button>
+    <button class="ni" onclick="showTab('var',this)"><span class="ni-ic">⊕</span>Report Variation</button>
+    <div class="sbar-sec">My Projects</div>
+    <div id="sbProj" style="padding:0 6px"></div>
+  </aside>
+
+  <div class="main">
+    <div class="pg">
+
+      <!-- TASKS -->
+      <div id="tab-tasks">
+        <div class="sh" id="taskHead">My Tasks</div>
+        <div class="tnav-tabs">
+          <button class="tt on" onclick="filterT('all',this)">All</button>
+          <button class="tt" onclick="filterT('today',this)">Today</button>
+          <button class="tt" onclick="filterT('overdue',this)">Overdue</button>
+          <button class="tt" onclick="filterT('done',this)">Done</button>
+        </div>
+        <div id="taskList"></div>
+      </div>
+
+      <!-- SITE UPDATE -->
+      <div id="tab-update" style="display:none">
+        <div class="sh">Submit Site Update</div>
+        <div class="card"><div class="cb">
+          <div class="fg"><label class="fl">Project</label><select class="fc" id="su-p"></select></div>
+          <div class="fg"><label class="fl">What was completed today?</label><textarea class="fc" id="su-done" rows="3" placeholder="Describe work completed..."></textarea></div>
+          <div class="fg"><label class="fl">What is next task?</label><textarea class="fc" id="su-next" rows="2" placeholder="What needs to happen next..."></textarea></div>
+          <div class="fg"><label class="fl">Issues or blockers?</label><textarea class="fc" id="su-issues" rows="2" placeholder="Anything stopping work..."></textarea></div>
+          <div class="fg"><label class="fl">Materials needed? (for Abin)</label><textarea class="fc" id="su-mats" rows="2" placeholder="List materials Abin needs to collect..."></textarea></div>
+          <div class="fg"><label class="fl">Any extra scope from client? (Variation)</label>
+            <select class="fc" id="su-var" onchange="toggleVD()"><option value="no">No</option><option value="yes">Yes — client requested extra work</option></select></div>
+          <div class="fg" id="vdGrp" style="display:none"><label class="fl">Describe variation</label><textarea class="fc" id="su-vd" rows="2"></textarea></div>
+          <div class="fg"><label class="fl">📸 Photos (debris bills MANDATORY for carting away)</label>
+            <input type="file" accept="image/*" id="su-photo" multiple style="display:none" onchange="prevPhotos()">
+            <div class="cam" onclick="document.getElementById('su-photo').click()">📷 Tap to upload photos</div>
+            <div id="photoPrev" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+          </div>
+          <button class="btn btn-g" onclick="submitUpdate()" style="width:100%;padding:12px;justify-content:center">Submit Site Update → Nova (PM)</button>
+        </div></div>
+      </div>
+
+      <!-- MATERIAL REQUEST -->
+      <div id="tab-mat" style="display:none">
+        <div class="sh">Request Material</div>
+        <div class="astrip or on"><span>⚡</span><div>Zara checks duplicates → Archana approves → Abin collects</div></div>
+        <div class="card"><div class="cb">
+          <div class="astrip rd" id="dupW"><span>⚠</span><div><b>Zara Alert:</b> Similar material may already be ordered for this project.</div></div>
+          <div class="fg"><label class="fl">Project</label><select class="fc" id="mr-p" onchange="chkDup()"></select></div>
+          <div class="fg"><label class="fl">Material Description</label><input class="fc" id="mr-m" placeholder="Be specific — brand, size, color, finish" oninput="chkDup()"></div>
+          <div class="fr"><div class="fg"><label class="fl">Quantity + Unit</label><input class="fc" id="mr-q" placeholder="e.g. 45 sqm"></div><div class="fg"><label class="fl">Est. Cost (AED)</label><input class="fc" id="mr-c" type="number"></div></div>
+          <div class="fr"><div class="fg"><label class="fl">Urgency</label><select class="fc" id="mr-u"><option>Normal</option><option>Urgent</option></select></div><div class="fg"><label class="fl">Supplier / Shop</label><input class="fc" id="mr-s" placeholder="e.g. Tile Kingdom, Deira"></div></div>
+          <button class="btn btn-t" onclick="submitMat()" style="width:100%;padding:12px;justify-content:center">Submit Request → Archana</button>
+        </div></div>
+      </div>
+
+      <!-- VARIATION -->
+      <div id="tab-var" style="display:none">
+        <div class="sh">Report Variation</div>
+        <div class="astrip rd on"><span>⚠</span><div><b>DO NOT start work</b> until Aishwarya confirms client has signed the VO.</div></div>
+        <div class="card"><div class="cb">
+          <div class="fg"><label class="fl">Project</label><select class="fc" id="vr-p"></select></div>
+          <div class="fg"><label class="fl">What extra work did client request?</label><textarea class="fc" id="vr-d" rows="3" placeholder="Describe clearly..."></textarea></div>
+          <div class="fr"><div class="fg"><label class="fl">Estimated Extra Cost (AED)</label><input class="fc" id="vr-c" type="number" placeholder="Your estimate"></div><div class="fg"><label class="fl">Urgency</label><select class="fc" id="vr-u"><option>Normal</option><option>Urgent</option></select></div></div>
+          <button class="btn btn-g" onclick="submitVar()" style="width:100%;padding:12px;justify-content:center">Report → Aishwarya will prepare VO</button>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import {
+  requireAuth, logout, getProjects, getTasks, addTask, updateTask,
+  getMaterials, addMaterial, checkDuplicate,
+  addVariation, addSiteUpdate,
+  toast, showLoading, hideLoading, Timestamp
+} from './auth.js';
+
+let myName='', myProjs=[], myTasks=[], allMats=[];
+let curFilter='all';
+
+requireAuth(['engineer','foreman'], async (user, profile) => {
+  myName=profile.name;
+  document.getElementById('uName').textContent=myName;
+  document.getElementById('uRole').textContent=profile.role;
+  document.getElementById('uOrb').textContent=myName[0]?.toUpperCase()||'?';
+  document.getElementById('taskHead').textContent=`${myName}'s Tasks`;
+  await loadAll();
+  hideLoading();
+});
+
+window.doLogout=()=>logout();
+
+async function loadAll() {
+  [myProjs, myTasks, allMats] = await Promise.all([getProjects(myName),getTasks({assignedTo:myName}),getMaterials()]);
+  fillDD(); renderSB(); renderTasks('all');
+}
+
+function fillDD() {
+  const names=myProjs.map(p=>p.name);
+  ['su-p','mr-p','vr-p'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=names.map(n=>`<option>${n}</option>`).join('');});
+}
+
+function renderSB() {
+  document.getElementById('sbProj').innerHTML=myProjs.map(p=>`
+    <div style="padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:5px">
+      <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+      <div style="font-size:10px;color:var(--gold);font-family:'JetBrains Mono',monospace;margin-top:1px">${p.progress||0}%</div>
+      <div style="background:var(--border2);border-radius:1px;height:2px;margin-top:4px"><div style="width:${p.progress||0}%;height:100%;background:var(--gold);border-radius:1px"></div></div>
+    </div>`).join('');
+}
+
+function renderTasks(filter) {
+  curFilter=filter;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tmr=new Date(today); tmr.setDate(tmr.getDate()+1);
+  let tasks=[...myTasks];
+  if(filter==='today') tasks=tasks.filter(t=>t.dueDate?.toDate&&t.dueDate.toDate()>=today&&t.dueDate.toDate()<tmr&&t.status!=='Done');
+  else if(filter==='overdue') tasks=tasks.filter(t=>t.dueDate?.toDate&&t.dueDate.toDate()<today&&t.status==='Pending');
+  else if(filter==='done') tasks=tasks.filter(t=>t.status==='Done');
+  else tasks=tasks.filter(t=>t.status!=='Done');
+  tasks.sort((a,b)=>{const p={High:0,Medium:1,Low:2};return (p[a.priority]||1)-(p[b.priority]||1);});
+  document.getElementById('tBadge').textContent=myTasks.filter(t=>t.status!=='Done').length;
+  const el=document.getElementById('taskList');
+  if(!tasks.length){el.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted)">${filter==='done'?'No completed tasks yet':'All clear!'}</div>`;return;}
+  el.innerHTML=tasks.map(t=>{
+    const due=t.dueDate?.toDate?t.dueDate.toDate():null;
+    const od=due&&due<today&&t.status==='Pending';
+    const isT=due&&due>=today&&due<tmr;
+    const dueTxt=due?due.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}):'No date';
+    return `<div class="tc ${od?'od':isT?'td':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
+        <div class="tc-title">${t.description||'Task'}</div>
+        <span class="pr pr-${t.priority==='High'?'h':t.priority==='Medium'?'m':'l'}" style="flex-shrink:0">${t.priority||'Med'}</span>
+      </div>
+      <div class="tc-meta">
+        <span class="tc-proj">${t.project||'—'}</span>
+        <span style="font-size:11px;color:${od?'var(--red)':isT?'var(--orange)':'var(--muted)'};font-family:'JetBrains Mono',monospace">${od?'⚠ OVERDUE — ':isT?'⏰ TODAY — ':''}${dueTxt}</span>
+      </div>
+      ${t.lastUpdate?`<div style="font-size:11px;color:var(--muted);background:var(--card2);padding:8px;border-radius:4px;margin-bottom:8px">Last update: ${t.lastUpdate}</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${t.status==='Done'?'<span class="st st-d">✓ Completed</span>':`
+          <button class="btn btn-gr" onclick="markDone('${t.id}')">✓ Done</button>
+          ${t.status==='Pending'?`<button class="btn btn-gh" onclick="startTask('${t.id}')">▶ Start</button>`:'<span class="st st-i">In Progress</span>'}
+          <button class="btn btn-gh" onclick="toggleUpd('${t.id}')">📝 Update</button>
+        `}
+      </div>
+      <div class="upd-form" id="upd-${t.id}">
+        <div class="fg" style="margin-bottom:8px"><label class="fl">Progress note</label><textarea class="fc" id="note-${t.id}" rows="2" placeholder="What was done..."></textarea></div>
+        <input type="file" accept="image/*" id="ph-${t.id}" multiple style="display:none" onchange="prevPh('${t.id}')">
+        <div class="cam" onclick="document.getElementById('ph-${t.id}').click()">📷 Add photo</div>
+        <div id="pv-${t.id}" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+        <button class="btn btn-t" onclick="submitUpd('${t.id}')" style="margin-top:10px;width:100%;justify-content:center">Submit Update</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.showTab=(id,btn)=>{
+  ['tasks','update','mat','var'].forEach(t=>document.getElementById('tab-'+t).style.display=t===id?'block':'none');
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+};
+window.filterT=(f,btn)=>{document.querySelectorAll('.tt').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderTasks(f);};
+window.toggleUpd=id=>document.getElementById('upd-'+id)?.classList.toggle('open');
+window.markDone=async id=>{showLoading('MARKING DONE...');await updateTask(id,{status:'Done',completedDate:new Date().toISOString()});myTasks=myTasks.map(t=>t.id===id?{...t,status:'Done'}:t);hideLoading();toast('Done ✓');renderTasks(curFilter);};
+window.startTask=async id=>{await updateTask(id,{status:'In Progress'});myTasks=myTasks.map(t=>t.id===id?{...t,status:'In Progress'}:t);renderTasks(curFilter);};
+window.submitUpd=async id=>{
+  const note=document.getElementById('note-'+id)?.value;
+  if(!note){toast('Add a note','error');return;}
+  showLoading('SUBMITTING...');
+  await updateTask(id,{status:'In Progress',lastUpdate:note,lastUpdateDate:new Date().toISOString()});
+  myTasks=myTasks.map(t=>t.id===id?{...t,lastUpdate:note,status:'In Progress'}:t);
+  document.getElementById('upd-'+id)?.classList.remove('open');
+  hideLoading();toast('Update sent ✓');renderTasks(curFilter);
+};
+window.prevPh=id=>{
+  const files=document.getElementById('ph-'+id).files;
+  const prev=document.getElementById('pv-'+id);
+  prev.innerHTML='';
+  [...files].forEach(f=>{const r=new FileReader();r.onload=e=>{prev.innerHTML+=`<img src="${e.target.result}" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid var(--border2)">`;};r.readAsDataURL(f);});
+};
+window.prevPhotos=function(){
+  const prev=document.getElementById('photoPrev');prev.innerHTML='';
+  [...document.getElementById('su-photo').files].forEach(f=>{const r=new FileReader();r.onload=e=>{prev.innerHTML+=`<img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border2)">`;};r.readAsDataURL(f);});
+};
+window.toggleVD=()=>{document.getElementById('vdGrp').style.display=document.getElementById('su-var').value==='yes'?'block':'none';};
+window.chkDup=async()=>{
+  const mat=document.getElementById('mr-m').value,proj=document.getElementById('mr-p').value;
+  if(mat.length<4||!proj)return;
+  const d=await checkDuplicate(mat,proj);
+  document.getElementById('dupW').classList.toggle('on',d);
+};
+window.submitUpdate=async()=>{
+  const done=document.getElementById('su-done').value,next=document.getElementById('su-next').value;
+  if(!done||!next){toast('Fill what was done and what is next','error');return;}
+  showLoading('SUBMITTING...');
+  try{
+    const hasVar=document.getElementById('su-var').value==='yes';
+    await addSiteUpdate({project:document.getElementById('su-p').value,engineer:myName,workDone:done,nextTask:next,issues:document.getElementById('su-issues').value,materialsNeeded:document.getElementById('su-mats').value,hasVariation:hasVar,variationDesc:document.getElementById('su-vd').value,date:new Date().toISOString()});
+    if(hasVar){
+      await addTask({description:`VO REQUIRED: ${document.getElementById('su-vd').value}`,project:document.getElementById('su-p').value,assignedTo:'Aishwarya',dueDate:Timestamp.fromDate(new Date(Date.now()+86400000)),priority:'High',category:'Variation Order',createdBy:myName,status:'Pending'});
+    }
+    hideLoading();toast('Site update submitted ✓');
+    ['su-done','su-next','su-issues','su-mats','su-vd'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('photoPrev').innerHTML='';
+    document.getElementById('su-var').value='no';
+    document.getElementById('vdGrp').style.display='none';
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+window.submitMat=async()=>{
+  const mat=document.getElementById('mr-m').value,proj=document.getElementById('mr-p').value;
+  if(!mat||!proj){toast('Fill material and project','error');return;}
+  showLoading('CHECKING...');
+  const dup=await checkDuplicate(mat,proj);
+  if(dup&&!confirm(`⚠ Zara: Similar material may already be ordered for ${proj}. Still submit?`)){hideLoading();return;}
+  try{
+    await addMaterial({material:mat,project:proj,requestedBy:myName,quantity:document.getElementById('mr-q').value,estimatedCost:+document.getElementById('mr-c').value||0,urgency:document.getElementById('mr-u').value,supplier:document.getElementById('mr-s').value});
+    hideLoading();toast('Request sent to Archana ✓');
+    ['mr-m','mr-q','mr-c','mr-s'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+window.submitVar=async()=>{
+  const desc=document.getElementById('vr-d').value;
+  if(!desc){toast('Describe the variation','error');return;}
+  showLoading('REPORTING...');
+  try{
+    const proj=document.getElementById('vr-p').value;
+    await addVariation({project:proj,description:desc,amount:+document.getElementById('vr-c').value||0,raisedBy:myName,deadline:'',submittedBy:'Aishwarya'});
+    await addTask({description:`VO NEEDED: ${desc}`,project:proj,assignedTo:'Aishwarya',dueDate:Timestamp.fromDate(new Date(Date.now()+86400000)),priority:'High',category:'Variation Order',createdBy:myName,status:'Pending'});
+    hideLoading();toast('Variation reported — Aishwarya notified ✓');
+    document.getElementById('vr-d').value='';document.getElementById('vr-c').value='';
+  }catch(e){hideLoading();toast('Error: '+e.message,'error');}
+};
+</script>
+</body>
+</html>

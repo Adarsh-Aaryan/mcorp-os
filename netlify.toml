@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mcorp — Procurement</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<nav class="tnav">
+  <div class="tnav-logo">MCORP</div>
+  <div class="tnav-right">
+    <div class="u-chip" id="uChip">
+      <div class="u-orb" id="uOrb" style="background:var(--greenx);color:var(--green)">?</div>
+      <div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole"></div></div>
+    </div>
+    <button class="btn btn-gh" onclick="doLogout()">Sign Out</button>
+  </div>
+</nav>
+<div class="shell">
+  <aside class="sbar">
+    <div class="sbar-sec">My Work</div>
+    <button class="ni on" onclick="showTab('all',this)"><span class="ni-ic">◰</span>All Requests<span class="nbadge" id="pendBadge">0</span></button>
+    <button class="ni" onclick="showTab('mine',this)"><span class="ni-ic">📦</span>My Collections</button>
+    <button class="ni" onclick="showTab('done',this)"><span class="ni-ic">✦</span>Completed</button>
+  </aside>
+  <div class="main">
+    <div class="pg">
+      <div class="sh" id="procHead">Procurement Requests</div>
+      <div class="astrip or on"><span>⚡</span><div id="roleInfo"><b>Loading...</b></div></div>
+      <div class="sg" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat tl"><div class="slbl">Pending Approval</div><div class="sval" id="s1">—</div></div>
+        <div class="stat or"><div class="slbl">Abin Collecting</div><div class="sval" id="s2">—</div></div>
+        <div class="stat gr"><div class="slbl">Delivered</div><div class="sval" id="s3">—</div></div>
+      </div>
+      <div class="card">
+        <table class="tbl">
+          <thead><tr><th>Req #</th><th>Material</th><th>Project</th><th>By</th><th>Qty</th><th>AED</th><th>Urgency</th><th>Supplier</th><th id="colHead1">Archana</th><th id="colHead2">Abin</th><th>Status</th></tr></thead>
+          <tbody id="procBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireAuth, logout, getMaterials, updateMaterial, toast, showLoading, hideLoading } from './auth.js';
+
+let myName='', myRole='', allMats=[];
+
+requireAuth(['accountant','procurement'], async (user, profile) => {
+  myName=profile.name;
+  myRole=profile.role;
+  document.getElementById('uName').textContent=myName;
+  document.getElementById('uRole').textContent=profile.role;
+  document.getElementById('uOrb').textContent=myName[0]?.toUpperCase()||'?';
+
+  if(myRole==='accountant'){
+    document.getElementById('roleInfo').innerHTML='<b>Archana:</b> Review requests below. Click Approve to assign Abin for collection. Reject if duplicate or incorrect.';
+    document.getElementById('colHead1').textContent='Your Action';
+    document.getElementById('colHead2').textContent='Abin Status';
+  } else {
+    document.getElementById('roleInfo').innerHTML='<b>Abin Philip:</b> These are your collection assignments from Archana. Mark each as Collected after picking up. Upload receipt photo.';
+    document.getElementById('colHead1').textContent='Archana';
+    document.getElementById('colHead2').textContent='Your Action';
+  }
+
+  await loadAll();
+  hideLoading();
+});
+
+window.doLogout=()=>logout();
+
+async function loadAll() {
+  allMats=await getMaterials();
+  renderStats(); renderProc(allMats);
+}
+
+function renderStats() {
+  const pend=allMats.filter(m=>!m.archanaApproved).length;
+  const coll=allMats.filter(m=>m.archanaApproved&&!m.abinCollected).length;
+  const done=allMats.filter(m=>m.abinCollected).length;
+  document.getElementById('s1').textContent=pend;
+  document.getElementById('s2').textContent=coll;
+  document.getElementById('s3').textContent=done;
+  document.getElementById('pendBadge').textContent=pend;
+}
+
+function renderProc(mats) {
+  let i=1;
+  const tbody=document.getElementById('procBody');
+  tbody.innerHTML=mats.map(m=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)">MAT-${String(i++).padStart(3,'0')}</td>
+    <td style="font-size:12px;font-weight:500">${m.material||'—'}</td>
+    <td style="font-size:11px;color:var(--gold)">${m.project||'—'}</td>
+    <td style="font-size:12px">${m.requestedBy||'—'}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${m.quantity||'—'}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${m.estimatedCost?Number(m.estimatedCost).toLocaleString():'TBD'}</td>
+    <td><span class="st ${m.urgency==='Urgent'?'st-o':'st-p'}" style="font-size:9px">${m.urgency||'Normal'}</span></td>
+    <td style="font-size:11px;color:var(--muted)">${m.supplier||'—'}</td>
+    <td>${myRole==='accountant'?
+      `<button class="btn btn-${m.archanaApproved?'gr':'gh'}" style="font-size:10px;padding:3px 8px" onclick="doApprove('${m.id}')">${m.archanaApproved?'✓ Approved':'Approve'}</button>
+       ${!m.archanaApproved?`<button class="btn btn-r" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="doReject('${m.id}')">Reject</button>`:''}`
+      :
+      `<span class="st ${m.archanaApproved?'st-d':'st-p'}" style="font-size:9px">${m.archanaApproved?'Approved':'Pending'}</span>`
+    }</td>
+    <td>${myRole==='procurement'&&m.archanaApproved?
+      `<button class="btn btn-${m.abinCollected?'gr':'t'}" style="font-size:10px;padding:3px 8px" onclick="doCollect('${m.id}')">${m.abinCollected?'✓ Collected':'Mark Collected'}</button>`
+      :
+      `<span class="st ${m.abinCollected?'st-d':m.archanaApproved?'st-i':'st-p'}" style="font-size:9px">${m.abinCollected?'Delivered':m.archanaApproved?'Abin Collecting':'Pending Approval'}</span>`
+    }</td>
+    <td><span class="st ${m.abinCollected?'st-d':m.archanaApproved?'st-i':'st-p'}" style="font-size:9px">${m.abinCollected?'Delivered':m.archanaApproved?'Collecting':'Pending'}</span></td>
+  </tr>`).join('')||'<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted)">No requests yet</td></tr>';
+}
+
+window.showTab=(t,btn)=>{
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  let mats=allMats;
+  if(t==='mine') mats=allMats.filter(m=>m.archanaApproved&&!m.abinCollected);
+  else if(t==='done') mats=allMats.filter(m=>m.abinCollected);
+  renderProc(mats);
+};
+
+window.doApprove=async id=>{
+  await updateMaterial(id,{archanaApproved:true,approvedDate:new Date().toISOString(),approvedBy:myName});
+  allMats=allMats.map(m=>m.id===id?{...m,archanaApproved:true}:m);
+  renderStats();renderProc(allMats);toast('Approved — Abin assigned ✓');
+};
+
+window.doReject=async id=>{
+  const reason=prompt('Reason for rejection?');
+  if(!reason) return;
+  await updateMaterial(id,{archanaApproved:false,rejected:true,rejectReason:reason,rejectedBy:myName});
+  allMats=allMats.map(m=>m.id===id?{...m,rejected:true}:m);
+  renderStats();renderProc(allMats);toast('Request rejected');
+};
+
+window.doCollect=async id=>{
+  const cost=prompt('Actual cost paid (AED)?');
+  await updateMaterial(id,{abinCollected:true,actualCost:+cost||0,collectedDate:new Date().toISOString(),collectedBy:myName});
+  allMats=allMats.map(m=>m.id===id?{...m,abinCollected:true,actualCost:+cost||0}:m);
+  renderStats();renderProc(allMats);toast('Marked collected ✓');
+};
+</script>
+</body>
+</html>

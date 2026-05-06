@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function uid() { return request.auth.uid; }
+    function role() { return get(/databases/$(database)/documents/users/$(uid())).data.role; }
+    function name() { return get(/databases/$(database)/documents/users/$(uid())).data.name; }
+    function isOwner() { return request.auth != null && role() == 'owner'; }
+    function isSite() { return request.auth != null && role() in ['engineer','foreman']; }
+    function isOffice() { return request.auth != null && role() in ['designer','draftsman','accountant','procurement']; }
+    function isAuth() { return request.auth != null; }
+
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isOwner());
+      allow write: if isOwner();
+    }
+    match /projects/{id} {
+      allow read: if isAuth();
+      allow create, delete: if isOwner();
+      allow update: if isOwner() || (isSite() && resource.data.engineer.matches('.*' + name() + '.*'));
+    }
+    match /tasks/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (isOwner() || resource.data.assignedTo == name());
+      allow delete: if isOwner();
+    }
+    match /materials/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (isOwner() || role() in ['accountant','procurement']);
+      allow delete: if isOwner();
+    }
+    match /variations/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (isOwner() || role() in ['designer']);
+      allow delete: if isOwner();
+    }
+    match /siteUpdates/{id} {
+      allow read: if isAuth() && (isOwner() || isOffice());
+      allow create: if isSite() || isOwner();
+      allow update, delete: if isOwner();
+    }
+  }
+}

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mcorp — Office</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.tc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;}
+.tc.od{border-color:rgba(217,79,79,.4);}
+.tc-title{font-size:14px;font-weight:600;margin-bottom:8px;line-height:1.4;}
+</style>
+</head>
+<body>
+<nav class="tnav">
+  <div class="tnav-logo">MCORP</div>
+  <div class="tnav-right">
+    <div class="u-chip" id="uChip">
+      <div class="u-orb" id="uOrb" style="background:var(--purplex);color:var(--purple)">?</div>
+      <div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole"></div></div>
+    </div>
+    <button class="btn btn-gh" onclick="doLogout()">Sign Out</button>
+  </div>
+</nav>
+<div class="shell">
+  <aside class="sbar">
+    <div class="sbar-sec">My Work</div>
+    <button class="ni on" onclick="showTab('tasks',this)"><span class="ni-ic">✦</span>My Tasks<span class="nbadge" id="tBadge">0</span></button>
+    <button class="ni" onclick="showTab('vos',this)"><span class="ni-ic">⊕</span>Variations<span class="nbadge o" id="vBadge">0</span></button>
+    <button class="ni" onclick="showTab('projects',this)"><span class="ni-ic">◈</span>Projects</button>
+  </aside>
+  <div class="main">
+    <div class="pg">
+
+      <!-- TASKS -->
+      <div id="tab-tasks">
+        <div class="sh" id="taskHead">My Tasks</div>
+        <div id="taskList"></div>
+      </div>
+
+      <!-- VARIATIONS -->
+      <div id="tab-vos" style="display:none">
+        <div class="sh">Variation Orders — My Actions</div>
+        <div class="astrip rd on"><span>⚠</span><div>Submit each VO to client for signature. <b>No work starts until signed.</b></div></div>
+        <div class="card"><table class="tbl">
+          <thead><tr><th>VO #</th><th>Project</th><th>Description</th><th>AED</th><th>Deadline</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="voBody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div id="tab-projects" style="display:none">
+        <div class="sh">Projects Overview</div>
+        <div id="projList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireAuth, logout, getTasks, updateTask, getVariations, updateVariation, getProjects, toast, showLoading, hideLoading } from './auth.js';
+
+let myName='', myTasks=[], allVOs=[], allProjs=[];
+
+requireAuth(['designer','draftsman'], async (user, profile) => {
+  myName=profile.name;
+  document.getElementById('uName').textContent=myName;
+  document.getElementById('uRole').textContent=profile.role;
+  document.getElementById('uOrb').textContent=myName[0]?.toUpperCase()||'?';
+  document.getElementById('taskHead').textContent=`${myName}'s Tasks`;
+  await loadAll(); hideLoading();
+});
+
+window.doLogout=()=>logout();
+
+async function loadAll() {
+  [myTasks,allVOs,allProjs]=await Promise.all([getTasks({assignedTo:myName}),getVariations(),getProjects()]);
+  renderTasks(); renderVOs(); renderProjs();
+}
+
+function renderTasks() {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const open=myTasks.filter(t=>t.status!=='Done');
+  document.getElementById('tBadge').textContent=open.length;
+  document.getElementById('vBadge').textContent=allVOs.filter(v=>v.status==='Unsigned').length;
+  open.sort((a,b)=>{const p={High:0,Medium:1,Low:2};return (p[a.priority]||1)-(p[b.priority]||1);});
+  const el=document.getElementById('taskList');
+  if(!open.length){el.innerHTML='<div style="text-align:center;padding:48px;color:var(--muted)">All clear!</div>';return;}
+  el.innerHTML=open.map(t=>{
+    const due=t.dueDate?.toDate?t.dueDate.toDate():null;
+    const od=due&&due<today;
+    const dueTxt=due?due.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}):'—';
+    return `<div class="tc ${od?'od':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+        <div class="tc-title">${t.description||'Task'}</div>
+        <span class="pr pr-${t.priority==='High'?'h':t.priority==='Medium'?'m':'l'}" style="flex-shrink:0">${t.priority||'Med'}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);padding:2px 8px;background:var(--goldx);border-radius:20px">${t.project||'—'}</span>
+        <span style="font-size:11px;color:${od?'var(--red)':'var(--muted)';};font-family:'JetBrains Mono',monospace">${od?'⚠ OVERDUE — ':''}${dueTxt}</span>
+        ${t.category?`<span style="font-size:10px;color:var(--muted)">${t.category}</span>`:''}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gr" onclick="markDone('${t.id}')">✓ Mark Done</button>
+        ${t.status==='Pending'?`<button class="btn btn-gh" onclick="startT('${t.id}')">▶ Start</button>`:'<span class="st st-i">In Progress</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderVOs() {
+  let i=1;
+  document.getElementById('voBody').innerHTML=allVOs.map(v=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">VO-${String(i++).padStart(3,'0')}</td>
+    <td style="font-size:11px;color:var(--gold)">${v.project||'—'}</td>
+    <td style="font-size:12px;max-width:200px">${(v.description||'').substring(0,55)}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${v.status==='Signed'?'var(--green)':'var(--red)'}">AED ${Number(v.amount||0).toLocaleString()}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${v.deadline||'—'}</td>
+    <td><span class="st ${v.status==='Signed'?'st-d':'st-o'}">${v.status}</span></td>
+    <td>${v.status!=='Signed'?`<button class="btn btn-g" style="font-size:10px;padding:3px 8px" onclick="signedVO('${v.id}')">Client Signed</button>`:'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">No VOs yet</td></tr>';
+}
+
+function renderProjs() {
+  document.getElementById('projList').innerHTML=allProjs.map(p=>{
+    const col=p.engineer?.includes('Sujin')?'#c9a96e':p.engineer?.includes('Zubair')?'#4f82d9':'#4fcdc9';
+    return `<div class="card" style="border-left:3px solid ${col};margin-bottom:10px">
+      <div class="ch"><div><div class="ct">${p.name}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px">${p.type} · <span style="color:${col}">${p.engineer}</span></div></div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:${col}">${p.progress||0}%</div></div>
+    </div>`;
+  }).join('');
+}
+
+window.showTab=(id,btn)=>{
+  ['tasks','vos','projects'].forEach(t=>document.getElementById('tab-'+t).style.display=t===id?'block':'none');
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+};
+window.markDone=async id=>{showLoading('MARKING...');await updateTask(id,{status:'Done',completedDate:new Date().toISOString()});myTasks=myTasks.map(t=>t.id===id?{...t,status:'Done'}:t);hideLoading();toast('Done ✓');renderTasks();};
+window.startT=async id=>{await updateTask(id,{status:'In Progress'});myTasks=myTasks.map(t=>t.id===id?{...t,status:'In Progress'}:t);renderTasks();};
+window.signedVO=async id=>{await updateVariation(id,{status:'Signed',signedDate:new Date().toISOString()});allVOs=allVOs.map(v=>v.id===id?{...v,status:'Signed'}:v);renderVOs();toast('VO signed ✓');};
+</script>
+</body>
+</html>

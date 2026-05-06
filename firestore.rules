@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mcorp — Fix User Profiles</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+body{background:#07070a;color:#ede9e0;font-family:'DM Sans',sans-serif;padding:32px;max-width:700px;margin:0 auto;}
+h1{font-size:28px;color:#c9a96e;margin-bottom:4px;}
+.sub{color:#585868;font-size:13px;margin-bottom:28px;}
+.log{background:#0d0d12;border:1px solid #1c1c26;border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;height:400px;overflow-y:auto;margin:16px 0;}
+.log-line{margin-bottom:4px;}
+.ok{color:#4caf7a;}.err{color:#d94f4f;}.info{color:#c9a96e;}.muted{color:#585868;}
+.btn{padding:12px 24px;background:#c9a96e;color:#1a0e00;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px;margin-bottom:10px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn2{padding:12px 24px;background:transparent;color:#4fcdc9;border:1px solid rgba(79,205,201,.3);border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px;margin-bottom:10px;}
+.warn{background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.25);color:#c9a96e;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:20px;}
+</style>
+</head>
+<body>
+<h1>Mcorp — Fix Staff Profiles</h1>
+<div class="sub">This writes all 9 staff profiles to Firestore so everyone can login correctly.</div>
+<div class="warn">⚠ You must be logged in as Adarsh (owner) for this to work. Run this once.</div>
+<button class="btn" id="runBtn" onclick="runFix()">🔧 Fix All Staff Profiles</button>
+<button class="btn2" onclick="checkProfiles()">👁 Check Current Profiles</button>
+<button class="btn2" onclick="clearLog()" style="color:#585868;border-color:#1c1c26">Clear Log</button>
+<div class="log" id="log"><div class="log-line muted">Ready. Click "Fix All Staff Profiles" to begin.</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, setDoc, getDoc, getDocs, collection, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATb3dKCkx0D2K_bLnwLYcVKRHGcTzfUFg",
+  authDomain: "mcorp-os.firebaseapp.com",
+  projectId: "mcorp-os",
+  storageBucket: "mcorp-os.firebasestorage.app",
+  messagingSenderId: "886290163748",
+  appId: "1:886290163748:web:010f2f466db99eca8a90b1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Staff profiles to write — matched to Firebase Auth UIDs
+// We look them up from Authentication
+const STAFF_EMAILS = [
+  { email:"adarsh@mcorp-interiors.com",   name:"Adarsh",      role:"owner" },
+  { email:"sujin@mcorp-interiors.com",    name:"Sujin",       role:"engineer" },
+  { email:"zubair@mcorp-interiors.com",   name:"Zubair",      role:"engineer" },
+  { email:"anoop@mcorp-interiors.com",    name:"Anoop",       role:"engineer" },
+  { email:"shibu@mcorp-interiors.com",    name:"Shibu",       role:"foreman" },
+  { email:"aishwarya@mcorp-interiors.com",name:"Aishwarya",   role:"designer" },
+  { email:"asiya@mcorp-interiors.com",    name:"Asiya",       role:"draftsman" },
+  { email:"archana@mcorp-interiors.com",  name:"Archana",     role:"accountant" },
+  { email:"abin@mcorp-interiors.com",     name:"Abin Philip", role:"procurement" },
+];
+
+function log(msg, type='info') {
+  const el=document.getElementById('log');
+  el.innerHTML+=`<div class="log-line ${type}">${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+window.clearLog=()=>{ document.getElementById('log').innerHTML=''; };
+
+// The trick: we use Firebase Admin-style approach
+// Since we can't look up UIDs by email from client SDK,
+// we'll write profiles using a known mapping approach:
+// Sign in as each user briefly using their stored password to get UID
+
+import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const STAFF_WITH_PASSWORDS = [
+  { email:"sujin@mcorp-interiors.com",    password:"Sujin@2025",  name:"Sujin",       role:"engineer" },
+  { email:"zubair@mcorp-interiors.com",   password:"Zubair@2025", name:"Zubair",      role:"engineer" },
+  { email:"anoop@mcorp-interiors.com",    password:"Anoop@2025",  name:"Anoop",       role:"engineer" },
+  { email:"shibu@mcorp-interiors.com",    password:"Shibu@2025",  name:"Shibu",       role:"foreman" },
+  { email:"aishwarya@mcorp-interiors.com",password:"Aish@2025",   name:"Aishwarya",   role:"designer" },
+  { email:"asiya@mcorp-interiors.com",    password:"Asiya@2025",  name:"Asiya",       role:"draftsman" },
+  { email:"archana@mcorp-interiors.com",  password:"Arch@2025",   name:"Archana",     role:"accountant" },
+  { email:"abin@mcorp-interiors.com",     password:"Abin@2025",   name:"Abin Philip", role:"procurement" },
+];
+
+window.runFix = async () => {
+  document.getElementById('runBtn').disabled = true;
+  log('═══════════════════════════════');
+  log('FIXING STAFF PROFILES...');
+  log('═══════════════════════════════');
+
+  // First fix Adarsh's own profile (currently logged in)
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      name: 'Adarsh', role: 'owner',
+      email: 'adarsh@mcorp-interiors.com'
+    }, { merge: true });
+    log('✓ Adarsh (owner) profile fixed', 'ok');
+  }
+
+  // Sign in as each staff member, write their profile, sign back out
+  for (const staff of STAFF_WITH_PASSWORDS) {
+    try {
+      // Sign in as this staff member to get their UID
+      const cred = await signInWithEmailAndPassword(auth, staff.email, staff.password);
+      const uid = cred.user.uid;
+
+      // Write their profile to Firestore
+      await setDoc(doc(db, 'users', uid), {
+        name: staff.name,
+        role: staff.role,
+        email: staff.email
+      }, { merge: true });
+
+      log(`✓ ${staff.name} (${staff.role}) — profile written`, 'ok');
+
+      // Sign back out
+      await signOut(auth);
+
+    } catch(e) {
+      log(`✗ Failed ${staff.name}: ${e.message}`, 'err');
+    }
+  }
+
+  // Sign back in as Adarsh
+  try {
+    await signInWithEmailAndPassword(auth, 'adarsh@mcorp-interiors.com', 'Mcorp@Owner2025');
+    log('✓ Signed back in as Adarsh', 'ok');
+  } catch(e) {
+    log('⚠ Please sign back in as Adarsh manually', 'muted');
+  }
+
+  log('');
+  log('═══════════════════════════════');
+  log('✓ ALL PROFILES FIXED!', 'ok');
+  log('');
+  log('Now each staff member can login and see their name + correct dashboard.', 'muted');
+  log('═══════════════════════════════');
+
+  document.getElementById('runBtn').disabled = false;
+};
+
+window.checkProfiles = async () => {
+  log('Checking existing profiles in Firestore...', 'info');
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    if (snap.empty) {
+      log('✗ No profiles found in users collection!', 'err');
+    } else {
+      log(`Found ${snap.size} profile(s):`, 'info');
+      snap.docs.forEach(d => {
+        const data = d.data();
+        log(`  • ${data.name||'?'} — ${data.role||'?'} — ${data.email||'?'}`, 'ok');
+      });
+    }
+  } catch(e) {
+    log('✗ Error reading profiles: ' + e.message, 'err');
+  }
+};
+
+// Check if logged in
+onAuthStateChanged(auth, user => {
+  if (user) {
+    log(`Logged in as: ${user.email}`, 'muted');
+  } else {
+    log('⚠ Not logged in. Please login at index.html first then come back here.', 'err');
+    document.getElementById('runBtn').disabled = true;
+  }
+});
+</script>
+</body>
+</html>

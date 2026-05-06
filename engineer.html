@@ -1,0 +1,214 @@
+// auth.js — Mcorp Interiors Firebase Layer
+// Firebase config: mcorp-os project
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc,
+  addDoc, updateDoc, query, where, orderBy,
+  onSnapshot, serverTimestamp, Timestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATb3dKCkx0D2K_bLnwLYcVKRHGcTzfUFg",
+  authDomain: "mcorp-os.firebaseapp.com",
+  projectId: "mcorp-os",
+  storageBucket: "mcorp-os.firebasestorage.app",
+  messagingSenderId: "886290163748",
+  appId: "1:886290163748:web:010f2f466db99eca8a90b1",
+  measurementId: "G-EH3TCVLEP9"
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export { Timestamp, serverTimestamp };
+
+// ── AUTH GUARD ──
+export function requireAuth(allowedRoles, onUser) {
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'index.html'; return; }
+    const profile = await getProfile(user.uid);
+    if (allowedRoles && allowedRoles.length && !allowedRoles.includes(profile.role)) {
+      alert('Access denied. Contact Adarsh.');
+      await signOut(auth);
+      window.location.href = 'index.html';
+      return;
+    }
+    onUser(user, profile);
+  });
+}
+
+export async function getProfile(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) return { uid, ...snap.data() };
+    return { uid, role: 'engineer', name: 'Unknown' };
+  } catch { return { uid, role: 'engineer', name: 'Unknown' }; }
+}
+
+export async function logout() {
+  await signOut(auth);
+  window.location.href = 'index.html';
+}
+
+// ── PROJECTS ──
+export async function getProjects(engineerName) {
+  try {
+    const snap = await getDocs(collection(db, 'projects'));
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (engineerName) return all.filter(p => p.engineer && p.engineer.includes(engineerName));
+    return all;
+  } catch(e) { console.error('getProjects:', e); return []; }
+}
+
+export async function addProject(data) {
+  return await addDoc(collection(db, 'projects'), { ...data, createdAt: serverTimestamp() });
+}
+
+export async function updateProject(id, data) {
+  return await updateDoc(doc(db, 'projects', id), { ...data, updatedAt: serverTimestamp() });
+}
+
+// ── TASKS ──
+export async function getTasks(filter) {
+  try {
+    let snap;
+    if (filter?.assignedTo) {
+      snap = await getDocs(query(collection(db, 'tasks'), where('assignedTo', '==', filter.assignedTo)));
+    } else {
+      snap = await getDocs(collection(db, 'tasks'));
+    }
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.error('getTasks:', e); return []; }
+}
+
+export async function addTask(data) {
+  return await addDoc(collection(db, 'tasks'), { ...data, status: data.status||'Pending', createdAt: serverTimestamp() });
+}
+
+export async function updateTask(id, data) {
+  return await updateDoc(doc(db, 'tasks', id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export function listenMyTasks(assignedTo, callback) {
+  const q = query(collection(db, 'tasks'), where('assignedTo', '==', assignedTo));
+  return onSnapshot(q, snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+}
+
+// ── MATERIALS ──
+export async function getMaterials(projectName) {
+  try {
+    const snap = await getDocs(collection(db, 'materials'));
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (projectName) return all.filter(m => m.project === projectName);
+    return all;
+  } catch(e) { console.error('getMaterials:', e); return []; }
+}
+
+export async function addMaterial(data) {
+  return await addDoc(collection(db, 'materials'), {
+    ...data, archanaApproved: false, abinCollected: false, createdAt: serverTimestamp()
+  });
+}
+
+export async function updateMaterial(id, data) {
+  return await updateDoc(doc(db, 'materials', id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function checkDuplicate(material, project) {
+  try {
+    const snap = await getDocs(query(collection(db, 'materials'),
+      where('project', '==', project), where('abinCollected', '==', false)
+    ));
+    const words = material.toLowerCase().split(' ').filter(w => w.length > 3);
+    return snap.docs.some(d => {
+      const m = (d.data().material || '').toLowerCase();
+      return words.some(w => m.includes(w));
+    });
+  } catch { return false; }
+}
+
+// ── VARIATIONS ──
+export async function getVariations(projectName) {
+  try {
+    const snap = await getDocs(collection(db, 'variations'));
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (projectName) return all.filter(v => v.project === projectName);
+    return all;
+  } catch(e) { console.error('getVariations:', e); return []; }
+}
+
+export async function addVariation(data) {
+  return await addDoc(collection(db, 'variations'), { ...data, status: 'Unsigned', createdAt: serverTimestamp() });
+}
+
+export async function updateVariation(id, data) {
+  return await updateDoc(doc(db, 'variations', id), { ...data, updatedAt: serverTimestamp() });
+}
+
+// ── SITE UPDATES ──
+export async function addSiteUpdate(data) {
+  return await addDoc(collection(db, 'siteUpdates'), { ...data, createdAt: serverTimestamp() });
+}
+
+export async function getSiteUpdates(projectName) {
+  try {
+    const snap = await getDocs(query(collection(db, 'siteUpdates'), where('project', '==', projectName)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { return []; }
+}
+
+// ── HELPERS ──
+export function fmtDate(ts) {
+  if (!ts) return '—';
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return String(ts); }
+}
+
+export function isOverdue(ts) {
+  if (!ts) return false;
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return d < today;
+  } catch { return false; }
+}
+
+export function toast(msg, type = 'success') {
+  let el = document.getElementById('_toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_toast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;padding:13px 20px;border-radius:10px;font-size:13px;font-family:DM Sans,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.5);transition:all .3s;opacity:0;transform:translateY(8px);pointer-events:none;background:#0d0d12;border:1px solid #242430;color:#ede9e0;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.borderColor = type === 'error' ? 'rgba(217,79,79,.4)' : 'rgba(76,175,122,.4)';
+  el.style.color = type === 'error' ? '#d94f4f' : '#4caf7a';
+  el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 3000);
+}
+
+export function showLoading(txt) {
+  let ov = document.getElementById('_ov');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = '_ov';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(7,7,10,.92);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;';
+    ov.innerHTML = '<div style="width:38px;height:38px;border:3px solid #1c1c26;border-top-color:#c9a96e;border-radius:50%;animation:spin 1s linear infinite"></div><div id="_ovTxt" style="font-family:JetBrains Mono,monospace;font-size:10px;color:#585868;letter-spacing:3px">LOADING...</div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  const t = document.getElementById('_ovTxt');
+  if (t) t.textContent = txt || 'LOADING...';
+}
+
+export function hideLoading() {
+  const ov = document.getElementById('_ov');
+  if (ov) ov.style.display = 'none';
+}
